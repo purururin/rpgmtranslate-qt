@@ -1,4 +1,4 @@
-name: Build Windows 64-bit (CMake)
+name: Build Windows 64-bit
 
 on:
   push:
@@ -9,6 +9,7 @@ on:
 
 jobs:
   build:
+    name: Build x64 Release
     runs-on: windows-latest
 
     steps:
@@ -25,8 +26,9 @@ jobs:
     - name: Install Qt
       uses: jurplel/install-qt-action@v3
       with:
-        version: '6.5.0' 
+        version: '6.5.0'
         arch: 'win64_msvc2019_64'
+        modules: 'qt5compat qtimageformats'
 
     - name: Setup MSVC & Ninja
       uses: ilammy/msvc-dev-cmd@v1
@@ -34,8 +36,12 @@ jobs:
         arch: x64
 
     - name: Configure CMake
+      # We force C17 to bypass the C23 standard detection error in MSVC
       run: |
-        cmake -B build -G "Ninja" -DCMAKE_BUILD_TYPE=Release
+        cmake -B build -G "Ninja" ^
+        -DCMAKE_BUILD_TYPE=Release ^
+        -DCMAKE_C_STANDARD=17 ^
+        -DCMAKE_C_STANDARD_REQUIRED=OFF
 
     - name: Build Project
       run: |
@@ -45,9 +51,16 @@ jobs:
       shell: pwsh
       run: |
         mkdir output
-        # Adjust the exe name if it differs from the repo name
-        copy build\rpgmtranslate-qt.exe output\ 
-        windeployqt --release --no-translations --compiler-runtime output\rpgmtranslate-qt.exe
+        # Searching for the exe in the build folder to ensure we grab it regardless of name
+        $exePath = Get-ChildItem -Path build -Filter *.exe -Recurse | Select-Object -First 1
+        if ($exePath) {
+            copy $exePath.FullName output\
+            $targetExe = "output\" + $exePath.Name
+            windeployqt --release --no-translations --compiler-runtime $targetExe
+        } else {
+            Write-Error "Executable not found in build directory!"
+            exit 1
+        }
 
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
