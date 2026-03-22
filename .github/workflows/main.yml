@@ -19,6 +19,10 @@ jobs:
         submodules: recursive
         fetch-depth: 0
 
+    # Sometimes the recursive checkout misses deep submodules
+    - name: Update Submodules
+      run: git submodule update --init --recursive
+
     - name: Install Rust
       uses: dtolnay/rust-toolchain@stable
       with:
@@ -28,10 +32,10 @@ jobs:
       uses: jurplel/install-qt-action@v3
       with:
         version: '6.5.0'
-        arch: 'win64_msvc2019_64' # We still use the MSVC-based Qt binaries
+        arch: 'win64_msvc2019_64'
         modules: 'qt5compat qtimageformats'
 
-    - name: Setup MSVC (Required for Windows SDK Headers)
+    - name: Setup MSVC
       uses: ilammy/msvc-dev-cmd@v1
       with:
         arch: x64
@@ -47,7 +51,8 @@ jobs:
         -DCMAKE_C_COMPILER=clang ^
         -DCMAKE_CXX_COMPILER=clang++ ^
         -DCMAKE_PREFIX_PATH="%Qt6_DIR%" ^
-        -DQt6_DIR="%Qt6_DIR%"
+        -DQt6_DIR="%Qt6_DIR%" ^
+        -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
 
     - name: Build Project
       run: |
@@ -57,8 +62,10 @@ jobs:
       shell: pwsh
       run: |
         if (!(Test-Path output)) { mkdir output }
-        $exePath = Get-ChildItem -Path build -Filter *.exe -Recurse | Where-Object { $_.FullName -notmatch 'CMakeFiles' } | Select-Object -First 1
+        # Look for the exe, avoiding the build metadata folders
+        $exePath = Get-ChildItem -Path build -Filter *.exe -Recurse | Where-Object { $_.FullName -notmatch 'CMakeFiles|tests' } | Select-Object -First 1
         if ($exePath) {
+            Write-Host "Found executable: $($exePath.FullName)"
             copy $exePath.FullName output\
             $targetExe = "output\" + $exePath.Name
             windeployqt --release --no-translations --compiler-runtime $targetExe
