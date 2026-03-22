@@ -20,7 +20,6 @@ jobs:
       uses: jurplel/install-qt-action@v4
       with:
         version: '6.7.0'
-        modules: 'qt5compat qtshadertools qtsvg'
         
     - name: Install Rust
       uses: dtolnay/rust-toolchain@stable
