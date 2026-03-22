@@ -1,0 +1,52 @@
+name: Build Windows 64-bit
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        submodules: recursive
+
+    - name: Install Qt
+      uses: jurplel/install-qt-action@v3
+      with:
+        version: '6.5.0' # Uses Qt 6, which is recommended for this project
+        arch: 'win64_msvc2019_64' # Forces 64-bit architecture
+        modules: 'qt5compat' # Optional: add if the project needs legacy Qt5 features
+
+    - name: Setup MSVC
+      uses: ilammy/msvc-dev-cmd@v1
+      with:
+        arch: x64 # Ensures the compiler targets 64-bit
+
+    - name: Configure and Build
+      shell: cmd
+      run: |
+        qmake .
+        nmake release
+
+    - name: Package Binary
+      shell: pwsh
+      run: |
+        # Creates a deployment folder
+        mkdir output
+        copy release\rpgmtranslate-qt.exe output\
+        
+        # Run windeployqt to include all necessary DLLs for 64-bit
+        windeployqt --release --no-translations --compiler-runtime output\rpgmtranslate-qt.exe
+
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: rpgmtranslate-qt-win64
+        path: output/
