@@ -36,12 +36,9 @@ jobs:
         arch: x64
 
     - name: Configure CMake
-      # We force C17 to bypass the C23 standard detection error in MSVC
+      shell: cmd
       run: |
-        cmake -B build -G "Ninja" ^
-        -DCMAKE_BUILD_TYPE=Release ^
-        -DCMAKE_C_STANDARD=17 ^
-        -DCMAKE_C_STANDARD_REQUIRED=OFF
+        cmake -B build -G "Ninja" -DCMAKE_BUILD_TYPE=Release -DCMAKE_C_STANDARD=17 -DCMAKE_C_STANDARD_REQUIRED=OFF -DCMAKE_PREFIX_PATH="%Qt6_DIR%"
 
     - name: Build Project
       run: |
@@ -51,7 +48,6 @@ jobs:
       shell: pwsh
       run: |
         mkdir output
-        # Searching for the exe in the build folder to ensure we grab it regardless of name
         $exePath = Get-ChildItem -Path build -Filter *.exe -Recurse | Select-Object -First 1
         if ($exePath) {
             copy $exePath.FullName output\
