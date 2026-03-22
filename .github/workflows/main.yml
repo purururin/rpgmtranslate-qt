@@ -33,9 +33,7 @@ jobs:
       
     - name: Configure
       run: |
-        ./configure.ps1 `
-          -Generator "Ninja" `
-          -CMakeArgs "-DCMAKE_BUILD_TYPE=$env:BUILD_TYPE"
+        ./configure.ps1 --generator=Ninja CMAKE_BUILD_TYPE=$env:BUILD_TYPE
       shell: pwsh
       
     - name: Build
