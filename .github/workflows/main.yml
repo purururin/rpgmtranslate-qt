@@ -1,81 +1,50 @@
-name: Build Windows 64-bit (Clang)
+name: Build
 
 on:
   push:
-    branches: [ "main", "master" ]
+    branches: [main, master]
   pull_request:
-    branches: [ "main", "master" ]
-  workflow_dispatch:
+    branches: [main, master]
+
+env:
+  BUILD_TYPE: Release
 
 jobs:
-  build:
-    name: Build x64 Release (Clang)
+  build-windows:
     runs-on: windows-latest
-
+    
     steps:
-    - name: Checkout code
-      uses: actions/checkout@v4
-      with:
-        submodules: recursive
-        fetch-depth: 0
-
-    # Sometimes the recursive checkout misses deep submodules
-    - name: Update Submodules
-      run: git submodule update --init --recursive
-
-    - name: Install Rust
-      uses: dtolnay/rust-toolchain@stable
-      with:
-        targets: x86_64-pc-windows-msvc
-
+    - uses: actions/checkout@v4
+    
     - name: Install Qt
-      uses: jurplel/install-qt-action@v3
+      uses: jurplel/install-qt-action@v4
       with:
-        version: '6.5.0'
-        arch: 'win64_msvc2019_64'
-        modules: 'qt5compat qtimageformats'
-
-    - name: Setup MSVC
-      uses: ilammy/msvc-dev-cmd@v1
+        version: '6.7.0'
+        modules: 'qt5compat qtshadertools qtsvg'
+        
+    - name: Install Rust
+      uses: dtolnay/rust-action@stable
       with:
-        arch: x64
-
-    - name: Install LLVM/Clang
-      run: choco install llvm -y
-
-    - name: Configure CMake
-      shell: cmd
+        toolchain: stable
+        
+    - name: Install cbindgen
+      run: cargo install cbindgen
+      
+    - name: Install Ninja
+      uses: seanmiddleditch/gha-setup-ninja@v5
+      
+    - name: Configure
       run: |
-        cmake -B build -G "Ninja" ^
-        -DCMAKE_BUILD_TYPE=Release ^
-        -DCMAKE_C_COMPILER=clang ^
-        -DCMAKE_CXX_COMPILER=clang++ ^
-        -DCMAKE_PREFIX_PATH="%Qt6_DIR%" ^
-        -DQt6_DIR="%Qt6_DIR%" ^
-        -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
-
-    - name: Build Project
-      run: |
-        cmake --build build --config Release
-
-    - name: Package Binary
+        ./configure.ps1 `
+          -Generator "Ninja" `
+          -CMakeArgs "-DCMAKE_BUILD_TYPE=$env:BUILD_TYPE"
       shell: pwsh
-      run: |
-        if (!(Test-Path output)) { mkdir output }
-        # Look for the exe, avoiding the build metadata folders
-        $exePath = Get-ChildItem -Path build -Filter *.exe -Recurse | Where-Object { $_.FullName -notmatch 'CMakeFiles|tests' } | Select-Object -First 1
-        if ($exePath) {
-            Write-Host "Found executable: $($exePath.FullName)"
-            copy $exePath.FullName output\
-            $targetExe = "output\" + $exePath.Name
-            windeployqt --release --no-translations --compiler-runtime $targetExe
-        } else {
-            Write-Error "Executable not found!"
-            exit 1
-        }
-
+      
+    - name: Build
+      run: cmake --build build --config $env:BUILD_TYPE
+      
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: rpgmtranslate-qt-win64-clang
-        path: output/
+        name: rpgmtranslate-windows-x64
+        path: build/target/bin/rpgmtranslate.exe
